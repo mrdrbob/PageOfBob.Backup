@@ -223,7 +223,7 @@ namespace PageOfBob.Backup.Packed
                     (hash, str) => Parent.Destination.WriteAsync(hash, WriteOptions.CacheLocally, CopyToStream(str))
                 );
 
-                await Parent.Destination.WriteAsync(Keys.PackHead, WriteOptions.CacheLocally, WriteStringAsync(packIndexKey));
+                await Parent.Destination.WriteAsync(Keys.PackHead, WriteOptions.CacheLocally | WriteOptions.Overwrite, WriteStringAsync(packIndexKey));
                 Console.WriteLine($"FLUSHED");
 
                 stream.Dispose();

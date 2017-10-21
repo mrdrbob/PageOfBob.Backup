@@ -6,6 +6,7 @@ namespace PageOfBob.Backup
     public static class DestinationFactory
     {
         const string PackedPrefix = "packed:";
+        const string S3Prefix = "s3:";
 
         public static IDestination TryParse(string text)
             => FromPacked(text)
@@ -15,9 +16,22 @@ namespace PageOfBob.Backup
             => text.StartsWith(PackedPrefix, StringComparison.OrdinalIgnoreCase) ? new Packed.PackedDestination(TryParsePartial(text.Substring(PackedPrefix.Length))) : null;
 
         static IDestinationWithPartialRead TryParsePartial(string text)
-            => FromFilePath(text);
+            => FromS3Path(text)
+            ?? FromFilePath(text);
 
         static IDestinationWithPartialRead FromFilePath(string text) => Directory.Exists(text) ? new FileSystem.FileSystemDestination(text) : null;
+
+        static IDestinationWithPartialRead FromS3Path(string text)
+        {
+            if (!text.StartsWith(S3Prefix, StringComparison.OrdinalIgnoreCase))
+                return null;
+
+            string[] split = text.Split(':');
+            if (split.Length != 5)
+                return null;
+
+            return new S3.S3Destination(split[1], split[2], split[3], split[4]);
+        }
     }
 
     public static class SourceFactory
