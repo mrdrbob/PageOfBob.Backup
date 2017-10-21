@@ -2,12 +2,10 @@
 using System.Collections.Generic;
 using Amazon.S3;
 using Amazon.S3.Model;
-using System.IO.Pipes;
-using Amazon.S3.Transfer;
 
 namespace PageOfBob.Backup.S3
 {
-    class S3Destination : IDestinationWithPartialRead
+    public class S3Destination : IDestinationWithPartialRead
     {
         readonly string bucket;
         readonly string prefix;
