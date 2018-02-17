@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace PageOfBob.Backup.FileSystem
@@ -12,7 +13,7 @@ namespace PageOfBob.Backup.FileSystem
 
         public FileSystemSource(string basePath)
         {
-            this.basePath = basePath.TrimEnd('\\');
+            this.basePath = basePath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
         }
 
         string PartialPath(string fullPath) => fullPath.Substring(basePath.Length + 1);
@@ -24,22 +25,70 @@ namespace PageOfBob.Backup.FileSystem
             var fullPath = FullPath(path);
             if (!File.Exists(fullPath))
                 return Task.FromResult<FileEntry>(null);
+            return Task.FromResult(GetFileInfo(fullPath, path));
+        }
 
-            var fileInfo = new FileInfo(FullPath(path));
-            return Task.FromResult(new FileEntry
+        FileEntry GetFileInfo(string fullPath, string partialPath)
+        {
+            var fileInfo = new FileInfo(fullPath);
+            return new FileEntry
             {
-                Path = path,
+                Path = partialPath,
                 Created = fileInfo.CreationTimeUtc.Ticks,
                 LastModified = fileInfo.LastWriteTimeUtc.Ticks,
                 Size = fileInfo.Length
-            });
+            };
         }
 
-        public Task<IEnumerable<string>> ListDirectoriesAsync(string path)
-            => Task.FromResult(Directory.GetDirectories(FullPath(path)).Select(PartialPath));
+        public async Task ProcessFiles(CancellationToken cancellationToken, Func<FileEntry, Task> action)
+        {
+            var stack = new Stack<string>();
+            stack.Push(FullPath(basePath));
 
-        public Task<IEnumerable<string>> ListFilesAsync(string path)
-            => Task.FromResult(Directory.GetFiles(FullPath(path)).Select(PartialPath));
+            while (stack.Count > 0 && !cancellationToken.IsCancellationRequested)
+            {
+                var path = stack.Pop();
+
+                IEnumerable<string> directories = Enumerable.Empty<string>();
+                try
+                {
+                    directories = Directory.GetDirectories(path);
+                }
+                catch (Exception ex)
+                {
+                    Console.Error.WriteLine($"DIR ERR: {path} - {ex.Message}");
+                    directories = Enumerable.Empty<string>();
+                }
+
+                foreach (var directory in directories)
+                {
+                    stack.Push(directory);
+                }
+
+
+                IEnumerable<string> files = Enumerable.Empty<string>();
+                try
+                {
+                    files = Directory.GetFiles(path);
+                }
+                catch (Exception ex)
+                {
+                    Console.Error.WriteLine($"DIR ERR: {path} - {ex.Message}");
+                    files = Enumerable.Empty<string>();
+                }
+
+                foreach (var file in files)
+                {
+                    if (cancellationToken.IsCancellationRequested)
+                        return;
+
+                    var info = GetFileInfo(file, PartialPath(file));
+
+                    await action(info);
+                }
+            }
+        }
+            
 
         public async Task ReadFileAsync(string path, ProcessStream function)
         {

@@ -1,12 +1,13 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace PageOfBob.Backup
 {
     public interface ISource
     {
-        Task<IEnumerable<string>> ListFilesAsync(string path);
-        Task<IEnumerable<string>> ListDirectoriesAsync(string path);
+        Task ProcessFiles(CancellationToken cancellationToken, Func<FileEntry, Task> action);
         Task<FileEntry> GetFileInfoAsync(string path);
 
         Task ReadFileAsync(string path, ProcessStream function);

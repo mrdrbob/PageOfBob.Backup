@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.CommandLineUtils;
 using System;
+using System.Threading.Tasks;
 
 namespace PageOfBob.Backup.App
 {
@@ -22,29 +23,39 @@ namespace PageOfBob.Backup.App
 
             app.Command("backup", (cmd) =>
             {
-                var sourceOption = cmd.Option("-s|--source <source>", "Source of the files to be backed up", CommandOptionType.SingleValue);
-                var destinationOption = cmd.Option("-d|--destination <destination>", "Destination to which to store backed up files", CommandOptionType.SingleValue);
+                var setOption = cmd.Option("-s|--set <set>", "Configuration Set", CommandOptionType.SingleValue);
 
                 var progressOption = cmd.Option("-p|--progress <progress>", "Save progress ever X files (useful for large, initial backups)", CommandOptionType.SingleValue);
                 var encryptionKeyOption = cmd.Option("-k|--key <key>", "Encryption Key", CommandOptionType.SingleValue);
 
                 cmd.OnExecute(() =>
                 {
-                    var destination = DestinationFactory.TryParse(destinationOption.Value());
-                    var source = SourceFactory.TryParse(sourceOption.Value());
-                    var config = new Processes.FullBackupProcessConfiguration(source, destination);
+                    var set = BackupSetConfiguration.FromJsonFile(setOption.Value());
+                    var config = new Processes.FullBackupProcessConfiguration(set.Source, set.Destination);
 
                     if (encryptionKeyOption.HasValue())
                         config.EncryptionKey = encryptionKeyOption.Value();
                     if (progressOption.HasValue())
                         config.WriteInProgressEvery = int.Parse(progressOption.Value());
 
+                    if (set.SkipFilesContaining != null)
+                    {
+                        config.ShouldBackup = ShouldBackupLogic.IgnoreContaining(set.SkipFilesContaining);
+                    }
+                    if (set.SkipCompressionContaining != null)
+                    {
+                        config.ShouldCompressFile = ShouldProcessFunctions.All(
+                            CompressionLogic.LargerThan(CompressionLogic.DefaultMinimumSize),
+                            CompressionLogic.SkipExtensions(set.SkipCompressionContaining));
+                    }
+
                     var task = Processes.FullBackupProcess.ExecuteBackup(config);
 
-                    Console.CancelKeyPress += delegate
+                    Console.CancelKeyPress += (sender, e) =>
                     {
                         Console.Out.WriteLine("Stopping");
                         config.Cancel();
+                        e.Cancel = true;
                     };
 
                     task.Wait();
@@ -55,8 +66,7 @@ namespace PageOfBob.Backup.App
 
             app.Command("restore", (cmd) =>
             {
-                var sourceOption = cmd.Option("-s|--source <source>", "The Source where restored files will go", CommandOptionType.SingleValue);
-                var destinationOption = cmd.Option("-d|--destination <destination>", "Destination from which backed up files are read", CommandOptionType.SingleValue);
+                var setOption = cmd.Option("-s|--set <set>", "Configuration Set", CommandOptionType.SingleValue);
 
                 var prefixOption = cmd.Option("-p|--prefix <prefix>", "Prefix to match for restoring files", CommandOptionType.SingleValue);
                 var encryptionKeyOption = cmd.Option("-k|--key <key>", "Decryption Key", CommandOptionType.SingleValue);
@@ -66,9 +76,8 @@ namespace PageOfBob.Backup.App
 
                 cmd.OnExecute(() =>
                 {
-                    var destination = DestinationFactory.TryParse(destinationOption.Value());
-                    var source = SourceFactory.TryParse(sourceOption.Value());
-                    var config = new Processes.FullRestoreProcessConfiguration(source, destination);
+                    var set = BackupSetConfiguration.FromJsonFile(setOption.Value());
+                    var config = new Processes.FullRestoreProcessConfiguration(set.Source, set.Destination);
 
                     if (encryptionKeyOption.HasValue())
                         config.EncryptionKey = encryptionKeyOption.Value();
@@ -80,12 +89,14 @@ namespace PageOfBob.Backup.App
                     config.VerifyOnly = verifyOnlyOption.HasValue();
                     config.ForceOverwrite = overwriteOption.HasValue();
 
-                    var task = Processes.FullRestoreProcess.ExecuteFullRestore(config);
+                    
+                    var task = Task.Run(() => Processes.FullRestoreProcess.ExecuteFullRestore(config));
 
-                    Console.CancelKeyPress += delegate
+                    Console.CancelKeyPress += (sender, e) =>
                     {
-                        Console.Out.WriteLine("Stopping");
+                        Console.Out.WriteLine("Stopping!");
                         config.Cancel();
+                        e.Cancel = true;
                     };
 
                     task.Wait();
@@ -96,7 +107,7 @@ namespace PageOfBob.Backup.App
 
             app.Command("report", (cmd) =>
             {
-                var destinationOption = cmd.Option("-d|--destination <destination>", "Destination from which backed up index is read", CommandOptionType.SingleValue);
+                var setOption = cmd.Option("-s|--set <set>", "Configuration Set", CommandOptionType.SingleValue);
 
                 var prefixOption = cmd.Option("-p|--prefix <prefix>", "Prefix to match for reporting files", CommandOptionType.SingleValue);
                 var encryptionKeyOption = cmd.Option("-k|--key <key>", "Decryption Key", CommandOptionType.SingleValue);
@@ -107,8 +118,8 @@ namespace PageOfBob.Backup.App
 
                 cmd.OnExecute(() =>
                 {
-                    var destination = DestinationFactory.TryParse(destinationOption.Value());
-                    var config = new Processes.BackupReportProcessConfiguration(destination);
+                    var set = BackupSetConfiguration.FromJsonFile(setOption.Value());
+                    var config = new Processes.BackupReportProcessConfiguration(set.Destination);
 
                     if (encryptionKeyOption.HasValue())
                         config.EncryptionKey = encryptionKeyOption.Value();
@@ -126,10 +137,11 @@ namespace PageOfBob.Backup.App
 
                     var task = Processes.BackupReportProcess.Execute(config);
 
-                    Console.CancelKeyPress += delegate
+                    Console.CancelKeyPress += (sender, e) =>
                     {
                         Console.Out.WriteLine("Stopping");
                         config.Cancel();
+                        e.Cancel = true;
                     };
 
                     task.Wait();

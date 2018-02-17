@@ -210,11 +210,11 @@ namespace PageOfBob.Backup.Packed
 
             public async Task<string> FlushAsync()
             {
-                Console.WriteLine("BEGIN FLUSH");
+                Console.Out.WriteLine("BEGIN FLUSH");
                 stream.Seek(0, SeekOrigin.Begin);
                 Entry.PackKey = stream.CalculateHashOnStream();
 
-                Console.WriteLine($"WRITING {Entry.PackKey}");
+                Console.Out.WriteLine($"WRITING {Entry.PackKey}");
                 stream.Seek(0, SeekOrigin.Begin);
                 await Parent.Destination.WriteAsync(Entry.PackKey, WriteOptions.None, CopyToStream(stream));
 
@@ -224,7 +224,7 @@ namespace PageOfBob.Backup.Packed
                 );
 
                 await Parent.Destination.WriteAsync(Keys.PackHead, WriteOptions.CacheLocally | WriteOptions.Overwrite, WriteStringAsync(packIndexKey));
-                Console.WriteLine($"FLUSHED");
+                Console.Out.WriteLine($"FLUSHED");
 
                 stream.Dispose();
                 File.Delete(path);

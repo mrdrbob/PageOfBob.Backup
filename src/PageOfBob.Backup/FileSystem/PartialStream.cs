@@ -54,10 +54,7 @@ namespace PageOfBob.Backup.FileSystem
             }
         }
 
-        public override void SetLength(long value)
-        {
-            throw new NotImplementedException();
-        }
+        public override void SetLength(long value) => throw new NotImplementedException();
 
         public override void Write(byte[] buffer, int offset, int count) => stream.Write(buffer, offset, count);
     }

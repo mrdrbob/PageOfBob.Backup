@@ -55,7 +55,7 @@ namespace PageOfBob.Backup.Processes
             await PreloadExistingSet(Keys.Progress);
 
             // Execute actual process
-            await ProcessAllFiles();
+            await Configuration.Source.ProcessFiles(Configuration.CancellationToken, ProcessFile);
 
             // Write final results
             await WriteHead();
@@ -92,54 +92,6 @@ namespace PageOfBob.Backup.Processes
             foreach (var file in set.Entries)
             {
                 PreviousEntries[file.Path] = file;
-            }
-        }
-
-        async Task ProcessAllFiles()
-        {
-            Stack<string> pathStack = new Stack<string>();
-            pathStack.Push(null);
-
-            while (!Configuration.CancellationToken.IsCancellationRequested && pathStack.Count > 0)
-            {
-                var path = pathStack.Pop();
-
-                IEnumerable<string> directories;
-                try
-                {
-                    directories = await Configuration.Source.ListDirectoriesAsync(path);
-                }
-                catch (Exception ex)
-                {
-                    Console.Error.WriteLine($"DIR ERR: {path} - {ex.Message}");
-                    directories = Enumerable.Empty<string>();
-                }
-
-                foreach (var directory in directories)
-                {
-                    pathStack.Push(directory);
-                }
-
-
-                IEnumerable<string> files;
-                try
-                {
-                    files = await Configuration.Source.ListFilesAsync(path);
-                }
-                catch (Exception ex)
-                {
-                    Console.Error.WriteLine($"DIR ERR: {path} - {ex.Message}");
-                    files = Enumerable.Empty<string>();
-                }
-                foreach (var file in files)
-                {
-                    if (Configuration.CancellationToken.IsCancellationRequested)
-                        return;
-
-                    var fileInfo = await Configuration.Source.GetFileInfoAsync(file);
-
-                    await ProcessFile(fileInfo);
-                }
             }
         }
 
@@ -192,7 +144,7 @@ namespace PageOfBob.Backup.Processes
             {
                 using (var memoryStream = GlobalContext.MemoryStreamManager.GetStream())
                 {
-                    // Read a chunk into the memory stream
+                    // Read a chunk into the memor stream
                     long readEnd = Math.Min(position + Configuration.ChunkSize, file.Size);
                     while (position < readEnd)
                     {

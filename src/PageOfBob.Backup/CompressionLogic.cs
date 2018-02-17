@@ -14,11 +14,13 @@ namespace PageOfBob.Backup
             // Word documents (actually zip files)
             ".docx", ".xlsx", ".pptx",
             // Zip files
-            ".bz2", ".7z", ".zip", ".rar", ".jar", ".gz"
+            ".bz2", ".7z", ".zip", ".rar", ".jar", ".gz",
+            // Photos
+            ".nef", "dng", "cr2", "tif"
         };
 
         // 1K default min size for compression
-        const int DefaultMinimumSize = 1024;
+        public const int DefaultMinimumSize = 1024;
 
         public static ShouldProcessFile LargerThan(int sizeInBytes) => (file) => file.Size >= sizeInBytes;
 

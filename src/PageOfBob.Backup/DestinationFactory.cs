@@ -1,44 +1,40 @@
 ﻿using System;
-using System.IO;
 
 namespace PageOfBob.Backup
 {
+
     public static class DestinationFactory
     {
-        const string PackedPrefix = "packed:";
-        const string S3Prefix = "s3:";
-
-        public static IDestination TryParse(string text)
-            => FromPacked(text)
-                ?? TryParsePartial(text);
-
-        static IDestination FromPacked(string text)
-            => text.StartsWith(PackedPrefix, StringComparison.OrdinalIgnoreCase) ? new Packed.PackedDestination(TryParsePartial(text.Substring(PackedPrefix.Length))) : null;
-
-        static IDestinationWithPartialRead TryParsePartial(string text)
-            => FromS3Path(text)
-            ?? FromFilePath(text);
-
-        static IDestinationWithPartialRead FromFilePath(string text) => Directory.Exists(text) ? new FileSystem.FileSystemDestination(text) : null;
-
-        static IDestinationWithPartialRead FromS3Path(string text)
+        public static IDestination Resolve(dynamic destination)
         {
-            if (!text.StartsWith(S3Prefix, StringComparison.OrdinalIgnoreCase))
-                return null;
-
-            string[] split = text.Split(':');
-            if (split.Length != 5)
-                return null;
-
-            return new S3.S3Destination(split[1], split[2], split[3], split[4]);
+            string type = destination.type;
+            switch (type)
+            {
+                case "PackedDestination": return PackedDestination(destination.config);
+                default: return ResolveWithPartial(destination);
+            }
         }
-    }
 
-    public static class SourceFactory
-    {
-        public static ISource TryParse(string text) => FromPath(text);
+        public static IDestinationWithPartialRead ResolveWithPartial(dynamic destination)
+        {
+            string type = destination.type;
+            switch (type)
+            {
+                case "FileSystemDestination": return FileSystemDestination(destination.config);
+                case "S3Destination": return S3Destination(destination.config);
+                default: throw new NotImplementedException();
+            }
+        }
 
-        static ISource FromPath(string text) => Directory.Exists(text) ? new FileSystem.FileSystemSource(text) : null;
+        static FileSystem.FileSystemDestination FileSystemDestination(dynamic config) => new FileSystem.FileSystemDestination((string)config.basePath);
+
+        static Packed.PackedDestination PackedDestination(dynamic config)
+        {
+            IDestinationWithPartialRead destination = Resolve(config.destination);
+            return new Packed.PackedDestination(destination);
+        }
+
+        static S3.S3Destination S3Destination(dynamic config) => new S3.S3Destination((string)config.buck, (string)config.prefix, (string)config.accessKey, (string)config.secretKey);
     }
 }
 
