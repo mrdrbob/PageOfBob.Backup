@@ -34,7 +34,7 @@ namespace PageOfBob.Backup
             return new Packed.PackedDestination(destination);
         }
 
-        static S3.S3Destination S3Destination(dynamic config) => new S3.S3Destination((string)config.buck, (string)config.prefix, (string)config.accessKey, (string)config.secretKey);
+        static S3.S3Destination S3Destination(dynamic config) => new S3.S3Destination((string)config.bucket, (string)config.prefix, (string)config.accessKey, (string)config.secretKey);
     }
 }
 
