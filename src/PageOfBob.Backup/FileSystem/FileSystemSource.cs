@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 
 namespace PageOfBob.Backup.FileSystem
 {
+    [Plugin("FileSystemSource", typeof(FileSystemSourceFactory))]
     public class FileSystemSource : ISource
     {
         readonly string basePath;

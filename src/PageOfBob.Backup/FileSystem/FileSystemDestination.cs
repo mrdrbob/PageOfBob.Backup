@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 
 namespace PageOfBob.Backup.FileSystem
 {
+    [Plugin("FileSystemDestination", typeof(FileSystemDestinationFactory))]
     public class FileSystemDestination : IDestinationWithPartialRead
     {
         readonly string basePath;
@@ -103,8 +104,7 @@ namespace PageOfBob.Backup.FileSystem
                 }
             }
 
-            path = Path.Combine(path, key);
-            return path;
+            return Path.Combine(path, key);
         }
 
         public Task FlushAsync() => Task.CompletedTask;

@@ -54,6 +54,7 @@ namespace PageOfBob.Backup.Processes
                     "Path",
                     "IsCompressed",
                     "FileSize",
+                    "LastModified",
                     "Subhash"
                 );
             }
@@ -64,6 +65,7 @@ namespace PageOfBob.Backup.Processes
                     "Path",
                     "IsCompressed",
                     "FileSize",
+                    "LastModified",
                     "HashCount"
                 );
             }
@@ -99,6 +101,7 @@ namespace PageOfBob.Backup.Processes
                                 fileEntry.Path,
                                 fileEntry.IsCompressed.ToString(),
                                 fileEntry.Size.ToString(),
+                                new DateTime(fileEntry.LastModified).ToString("U"),
                                 hash
                             );
                         }
@@ -110,6 +113,7 @@ namespace PageOfBob.Backup.Processes
                             fileEntry.Path,
                             fileEntry.IsCompressed.ToString(),
                             fileEntry.Size.ToString(),
+                            new DateTime(fileEntry.LastModified).ToString("U"),
                             fileEntry.SubHashes.Count.ToString()
                         );
                     }

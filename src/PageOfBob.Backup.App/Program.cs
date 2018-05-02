@@ -25,18 +25,16 @@ namespace PageOfBob.Backup.App
             {
                 var setOption = cmd.Option("-s|--set <set>", "Configuration Set", CommandOptionType.SingleValue);
 
-                var progressOption = cmd.Option("-p|--progress <progress>", "Save progress ever X files (useful for large, initial backups)", CommandOptionType.SingleValue);
                 var encryptionKeyOption = cmd.Option("-k|--key <key>", "Encryption Key", CommandOptionType.SingleValue);
 
                 cmd.OnExecute(() =>
                 {
                     var set = BackupSetConfiguration.FromJsonFile(setOption.Value());
                     var config = new Processes.FullBackupProcessConfiguration(set.Source, set.Destination);
+                    config.WriteInProgressEvery = set.ProgressEvery;
 
                     if (encryptionKeyOption.HasValue())
                         config.EncryptionKey = encryptionKeyOption.Value();
-                    if (progressOption.HasValue())
-                        config.WriteInProgressEvery = int.Parse(progressOption.Value());
 
                     if (set.SkipFilesContaining != null)
                     {
@@ -113,7 +111,7 @@ namespace PageOfBob.Backup.App
                 var encryptionKeyOption = cmd.Option("-k|--key <key>", "Decryption Key", CommandOptionType.SingleValue);
                 var entryOption = cmd.Option("-e|--entry <entry>", "Backup entry key", CommandOptionType.SingleValue);
                 var outputOption = cmd.Option("-o|--out <filename>", "Report to a file", CommandOptionType.SingleValue);
-                var subHashesOption = cmd.Option("-s|--subhashes", "Include all subhashes", CommandOptionType.NoValue);
+                var subHashesOption = cmd.Option("-h|--subhashes", "Include all subhashes", CommandOptionType.NoValue);
                 var dupesOption = cmd.Option("-i|--includeDupes", "Include duplicate files", CommandOptionType.NoValue);
 
                 cmd.OnExecute(() =>

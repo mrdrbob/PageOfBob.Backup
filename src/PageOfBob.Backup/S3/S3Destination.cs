@@ -5,6 +5,7 @@ using Amazon.S3.Model;
 
 namespace PageOfBob.Backup.S3
 {
+    [Plugin("S3Destination", typeof(S3DestinationFactory))]
     public class S3Destination : IDestinationWithPartialRead
     {
         readonly string bucket;

@@ -44,7 +44,7 @@ namespace PageOfBob.Backup
     public static class ShouldRestoreLogic
     {
         public static ShouldProcessFile ProcessMatchingPrefix(string prefix)
-            => (file) => file.Path.StartsWith(prefix, StringComparison.CurrentCultureIgnoreCase);
+            => (file) => file.Path != null && file.Path.StartsWith(prefix, StringComparison.CurrentCultureIgnoreCase);
 
         public static readonly ShouldProcessFile YesOfCourseYouShould = new ShouldProcessFile((file) => true);
     }

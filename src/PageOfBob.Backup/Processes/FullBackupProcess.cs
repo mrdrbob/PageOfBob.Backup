@@ -66,7 +66,6 @@ namespace PageOfBob.Backup.Processes
 
         async Task LoadHead()
         {
-
             string headKey = await ReadStringAsync(proc =>
             {
                 var readHeadKey = GetReadStream(proc, false);
@@ -91,6 +90,11 @@ namespace PageOfBob.Backup.Processes
 
             foreach (var file in set.Entries)
             {
+                if (file.Path == null)
+                {
+                    continue;
+                }
+
                 PreviousEntries[file.Path] = file;
             }
         }
@@ -188,7 +192,7 @@ namespace PageOfBob.Backup.Processes
             {
                 NewSet.Completed = DateTime.UtcNow.Ticks;
                 var newHead = await CalculateHashAndWrite(
-                    NewSet, 
+                    NewSet,
                     (hash, str) => {
                         var writeHeadObject = GetWriteStream(CopyToStream(str), true);
                         return Configuration.Destination.WriteAsync(hash, WriteOptions.CacheLocally, writeHeadObject);

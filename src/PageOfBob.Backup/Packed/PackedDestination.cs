@@ -8,6 +8,7 @@ using static PageOfBob.Backup.StreamFunctions;
 
 namespace PageOfBob.Backup.Packed
 {
+    [Plugin("PackedDestination", typeof(PackedDestinationFactory))]
     public class PackedDestination : IDestination
     {
         public static class Keys

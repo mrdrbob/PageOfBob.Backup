@@ -235,7 +235,7 @@ Reports on the contents of the backup.  This is useful for searching for files a
 * `-k|--key <key>` - Decryption key if using encryption.
 * `-e|--entry <entry>` - Only report from a particular backup entry.  Each time a backup is run, an entry is created.  If not provided, all entries are listed.
 * `-o|--out <filename>` - Write report to a file.  Otherwise, report is dumped to `stdout`.
-* `-s|--subhashes` - Files are frequently broken down into smaller chunks (called subhashes).  This option will list all of the subhashes associated to a file.
+* `-h|--subhashes` - Files are frequently broken down into smaller chunks (called subhashes).  This option will list all of the subhashes associated to a file.
 * `-i|--includeDupes` - Usually, files will be listed in the report the first time they appear; with this option, all instances of a file are reported.
 
 ### gen-key

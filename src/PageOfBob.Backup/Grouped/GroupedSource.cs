@@ -12,6 +12,7 @@ namespace PageOfBob.Backup.Grouped
         public ISource Source { get; set; }
     }
 
+    [Plugin("GroupedSource", typeof(GroupedSourceFactory))]
     public class GroupedSource : ISource
     {
         readonly IEnumerable<NamedSource> sources;
@@ -34,19 +35,28 @@ namespace PageOfBob.Backup.Grouped
 
         public async Task ProcessFiles(CancellationToken cancellationToken, Func<FileEntry, Task> action)
         {
+            foreach (var source in sources)
+            {
+                await source.Source.ProcessFiles(cancellationToken, (entry) =>
+                {
+                    entry.Path = JoinPath(source.Name, entry.Path);
+                    return action(entry);
+                });
+
+                if (cancellationToken.IsCancellationRequested)
+                    break;
+            }
+            /*
             var tasks = new List<Task>();
 
             foreach(var source in sources)
             {
                 var s = source;
-                tasks.Add(source.Source.ProcessFiles(cancellationToken, (entry) =>
-                {
-                    entry.Path = JoinPath(s.Name, entry.Path);
-                    return action(entry);
-                }));
+                tasks.Add();
             }
 
             await Task.WhenAll(tasks);
+            */
         }
 
         public Task ReadFileAsync(string path, ProcessStream function)

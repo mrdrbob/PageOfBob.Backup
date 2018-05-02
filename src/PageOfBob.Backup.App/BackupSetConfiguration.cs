@@ -16,12 +16,16 @@ namespace PageOfBob.Backup.App
         public IDestination Destination { get; }
         public HashSet<string> SkipFilesContaining { get; set; }
         public HashSet<string> SkipCompressionContaining { get; set; }
+        public int ProgressEvery { get; set; }
 
         public static BackupSetConfiguration FromJson(string rawString)
         {
             dynamic config = JObject.Parse(rawString);
-            var source = SourceFactory.Resolve(config.source);
-            var destination = DestinationFactory.Resolve(config.destination);
+
+            IRootFactory rootFactory = RootFactory.CreateInstance(config.plugins.ToObject<string[]>());
+
+            var source = (ISource)rootFactory.Instantiate(config.source);
+            var destination = (IDestination)rootFactory.Instantiate(config.destination);
 
             var set = new BackupSetConfiguration(source, destination);
 
@@ -36,6 +40,10 @@ namespace PageOfBob.Backup.App
                 set.SkipCompressionContaining = new HashSet<string>();
                 foreach (string file in config.skipCompressionContaining)
                     set.SkipCompressionContaining.Add(file);
+            }
+            if (config.progressEvery != null)
+            {
+                set.ProgressEvery = (int)config.progressEvery;
             }
 
             return set;
