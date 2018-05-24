@@ -67,7 +67,7 @@ namespace PageOfBob.Backup.Processes
                 if (Configuration.VerifyOnly)
                 {
                     try
-                        {
+                    {
 
                         var existingFile = await Configuration.Source.GetFileInfoAsync(file.Path);
                         if (existingFile == null)
@@ -80,10 +80,6 @@ namespace PageOfBob.Backup.Processes
                         if (!isMatch)
                         {
                             Console.Error.WriteLine($"INVALID: {file.Path}");
-                        }
-                        else
-                        {
-                            // Console.Error.WriteLine($"OK: {file.Path}");
                         }
                     }
                     catch (Exception ex)
@@ -153,8 +149,6 @@ namespace PageOfBob.Backup.Processes
 
                             readCount = await dest.ReadAsync(buffer, 0, buffer.Length);
                         }
-
-                        return;
                     }, file.IsCompressed);
 
                     await Configuration.Destination.ReadAsync(hash, ReadOptions.None, readChunk);

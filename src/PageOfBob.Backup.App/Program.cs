@@ -1,9 +1,23 @@
 ﻿using Microsoft.Extensions.CommandLineUtils;
 using System;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 
 namespace PageOfBob.Backup.App
 {
+    public static class WinInterop
+    {
+        [DllImport("kernel32.dll", CharSet = CharSet.Ansi, SetLastError = true)]
+        public static extern ThreadExecutionState SetThreadExecutionState(ThreadExecutionState esFlags);
+        [Flags]
+        public enum ThreadExecutionState : uint
+        {
+            CONTINUOUS = 0x80000000,
+            DISPLAY_REQUIRED = 0x00000002,
+            SYSTEM_REQUIRED = 0x00000001
+        }
+    }
+
     class Program
     {
         static int Main(string[] args)
@@ -31,7 +45,8 @@ namespace PageOfBob.Backup.App
                 {
                     var set = BackupSetConfiguration.FromJsonFile(setOption.Value());
                     var config = new Processes.FullBackupProcessConfiguration(set.Source, set.Destination);
-                    config.WriteInProgressEvery = set.ProgressEvery;
+                    config.WriteInProgressEveryCount = set.ProgressEveryCount;
+                    config.WriteInProgressEveryBytes = set.ProgressEveryBytes;
 
                     if (encryptionKeyOption.HasValue())
                         config.EncryptionKey = encryptionKeyOption.Value();
@@ -47,6 +62,12 @@ namespace PageOfBob.Backup.App
                             CompressionLogic.SkipExtensions(set.SkipCompressionContaining));
                     }
 
+                    // On Windows, disable sleep
+                    WinInterop.ThreadExecutionState previousThreadState = 0;
+                    if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
+                        previousThreadState = WinInterop.SetThreadExecutionState(WinInterop.ThreadExecutionState.SYSTEM_REQUIRED | WinInterop.ThreadExecutionState.CONTINUOUS);
+                    }
+
                     var task = Processes.FullBackupProcess.ExecuteBackup(config);
 
                     Console.CancelKeyPress += (sender, e) =>
@@ -57,6 +78,11 @@ namespace PageOfBob.Backup.App
                     };
 
                     task.Wait();
+
+                    // After sleeping, must restore previous thread state
+                    if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
+                        WinInterop.SetThreadExecutionState(previousThreadState);
+                    }
 
                     return 0;
                 });

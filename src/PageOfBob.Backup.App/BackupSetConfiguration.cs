@@ -16,7 +16,8 @@ namespace PageOfBob.Backup.App
         public IDestination Destination { get; }
         public HashSet<string> SkipFilesContaining { get; set; }
         public HashSet<string> SkipCompressionContaining { get; set; }
-        public int ProgressEvery { get; set; }
+        public long ProgressEveryCount { get; set; }
+        public long ProgressEveryBytes { get; set; }
 
         public static BackupSetConfiguration FromJson(string rawString)
         {
@@ -41,9 +42,13 @@ namespace PageOfBob.Backup.App
                 foreach (string file in config.skipCompressionContaining)
                     set.SkipCompressionContaining.Add(file);
             }
-            if (config.progressEvery != null)
+            if (config.progressEveryCount != null)
             {
-                set.ProgressEvery = (int)config.progressEvery;
+                set.ProgressEveryCount = (long)config.progressEveryCount;
+            }
+            if (config.progressEveryBytes != null)
+            {
+                set.ProgressEveryBytes = (long)config.progressEveryBytes;
             }
 
             return set;

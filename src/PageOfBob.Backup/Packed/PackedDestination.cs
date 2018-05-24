@@ -17,7 +17,6 @@ namespace PageOfBob.Backup.Packed
         }
 
         public IDestinationWithPartialRead Destination { get; }
-        public long PackSize { get; set; } = 500 * 1024 * 1024;
         public int MaxPackFilesToCache { get; set; } = 5;
         IDictionary<string, PackIndexEntry> entries;
         string head;
@@ -85,24 +84,30 @@ namespace PageOfBob.Backup.Packed
 
         public async Task<bool> WriteAsync(string key, WriteOptions writeOptions, ProcessStream writeAction)
         {
+            var writer = EnsureWriter();
+
             if ((writeOptions & WriteOptions.CacheLocally) != 0)
+            {
+                if (key == Backup.Keys.Progress)
+                {
+                    string newHead = await writer.FlushAsync();
+                    if (newHead != null)
+                    {
+                        entries.Add(newHead, writer.Entry);
+
+                        currentWriter = null;
+                        head = newHead;
+                    }
+                }
+
                 return await Destination.WriteAsync(key, writeOptions, writeAction);
+            }
 
             bool overwrite = (writeOptions & WriteOptions.Overwrite) != 0;
             if (!overwrite && await ExistsAsync(key, ReadOptions.None))
                 return false;
 
-            var writer = EnsureWriter();
-
-            string newHead = await writer.WriteAsync(key, writeAction);
-            if (newHead != null)
-            {
-                entries.Add(newHead, writer.Entry);
-
-                currentWriter = null;
-                head = newHead;
-            }
-
+            await writer.WriteAsync(key, writeAction);
             return true;
         }
 
@@ -188,7 +193,7 @@ namespace PageOfBob.Backup.Packed
                 stream = File.Open(path, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
             }
 
-            public async Task<string> WriteAsync(string key, ProcessStream writeAction)
+            public async Task WriteAsync(string key, ProcessStream writeAction)
             {
                 long position = stream.Position;
                 await writeAction(stream);
@@ -202,11 +207,6 @@ namespace PageOfBob.Backup.Packed
                 });
 
                 long newSize = stream.Position;
-
-                if (newSize < Parent.PackSize)
-                    return null;
-
-                return await FlushAsync();
             }
 
             public async Task<string> FlushAsync()

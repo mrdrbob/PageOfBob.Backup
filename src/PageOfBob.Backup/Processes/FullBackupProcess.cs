@@ -12,7 +12,8 @@ namespace PageOfBob.Backup.Processes
     {
         public ISource Source { get; }
         public IDestination Destination { get; }
-        public int WriteInProgressEvery { get; set; }
+        public long WriteInProgressEveryCount { get; set; }
+        public long WriteInProgressEveryBytes { get; set; }
         public ShouldProcessFile ShouldBackup { get; set; } = ShouldBackupLogic.Default;
         public ShouldProcessFile ShouldCompressFile { get; set; } = CompressionLogic.Default;
         public int ChunkSize { get; set; } = 100 * 1024 * 1024;
@@ -37,6 +38,7 @@ namespace PageOfBob.Backup.Processes
         public IDictionary<string, FileEntry> PreviousEntries { get; } = new Dictionary<string, FileEntry>();
         public BackupSetEntry NewSet { get; } = new BackupSetEntry();
         long filesProcessed;
+        long bytesProcessed;
 
         FullBackupProcess(FullBackupProcessConfiguration configuration)
         {
@@ -117,9 +119,11 @@ namespace PageOfBob.Backup.Processes
             // Process the file
             try
             {
-                await Configuration.Source.ReadFileAsync(file.Path, (src) => ProcessFileChunks(file, src));
+                Console.Out.WriteLine($"Processing {file.Path}");
+                await Configuration.Source.ReadFileAsync(file.Path, async (src) => {
+                    bytesProcessed += await ProcessFileChunks(file, src);
+                });
                 NewSet.Entries.Add(file);
-                Console.Out.WriteLine(file.Path);
             }
             catch (Exception ex)
             {
@@ -128,17 +132,22 @@ namespace PageOfBob.Backup.Processes
 
             // Write progress if necessary
             filesProcessed += 1;
-            if (!Configuration.CancellationToken.IsCancellationRequested
-                && Configuration.WriteInProgressEvery > 0
-                && filesProcessed >= Configuration.WriteInProgressEvery)
+            if (!Configuration.CancellationToken.IsCancellationRequested)
             {
-                var writeProgress = GetWriteStream(WriteObjectAsync(NewSet), true);
-                await Configuration.Destination.WriteAsync(Keys.Progress, WriteOptions.CacheLocally | WriteOptions.Overwrite, writeProgress);
-                filesProcessed = 0;
+                bool hasProcessedEnoughFiles = (Configuration.WriteInProgressEveryCount > 0 && filesProcessed >= Configuration.WriteInProgressEveryCount);
+                bool hasProcessedEnoughBytes = (Configuration.WriteInProgressEveryBytes > 0 && bytesProcessed >= Configuration.WriteInProgressEveryBytes);
+                if (hasProcessedEnoughFiles || hasProcessedEnoughBytes)
+                {
+                    var writeProgress = GetWriteStream(WriteObjectAsync(NewSet), true);
+                    await Configuration.Destination.WriteAsync(Keys.Progress, WriteOptions.CacheLocally | WriteOptions.Overwrite, writeProgress);
+
+                    filesProcessed = 0;
+                    bytesProcessed = 0;
+                }
             }
         }
 
-        async Task ProcessFileChunks(FileEntry file, Stream fileStream)
+        async Task<long> ProcessFileChunks(FileEntry file, Stream fileStream)
         {
             file.IsCompressed = Configuration.ShouldCompressFile(file);
 
@@ -148,7 +157,7 @@ namespace PageOfBob.Backup.Processes
             {
                 using (var memoryStream = GlobalContext.MemoryStreamManager.GetStream())
                 {
-                    // Read a chunk into the memor stream
+                    // Read a chunk into the memory stream
                     long readEnd = Math.Min(position + Configuration.ChunkSize, file.Size);
                     while (position < readEnd)
                     {
@@ -163,6 +172,8 @@ namespace PageOfBob.Backup.Processes
                     file.SubHashes.Add(chunkHash);
                 }
             }
+
+            return position;
         }
 
         async Task<string> ProcessChunk(FileEntry file, Stream chunk)

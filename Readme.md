@@ -8,10 +8,11 @@ THIS BACKUP SYSTEM IS NOT WELL TESTED AND YOU SHOULD NOT USE IT.
 
 * An `ISource` is a source of files to be backed up. The only `ISource` currently implemented is the `FileSystemSource` which will read files from the file system, everything under a base path (unless filtered out).
 
-* An `IDestination` is a store where largish chunks of data can be stored. There are three implemented: 
-  * `FileSystemDestination` dumps data into a tree on a normal file system.
-  * `S3Destination` writes files to an S3 bucket with a prefix.
+* An `IDestination` is a store where largish chunks of data can be stored. A destination can optionally support partial reads by implementing `IDestinationWithPartialRead`. There are a few implemented: 
+  * `FileSystemDestination` dumps data into a tree on a normal file system.  This implements `IDestinationWithPartialRead`.
+  * `S3Destination` writes files to an S3 bucket with a prefix.  This implements `IDestinationWithPartialRead`.
   * `PackedDestination` wraps another `IDestination`, but packs data into large chunks.
+  * `SplitDestination` wraps a primary `IDestinationWithPartialRead` and several secondary `IDestination`s, and sends each chunk to each of them in turn.  Note: this will load the chunk into memory, so be careful if wrapping a `SplitDestination` with a `PackedDestination`, as `PackedDestination` will generate very large chunks.  Reads only come from the Primary `IDestination`.  The primary destination must implement partial reads (`IDestinationWithPartialRead`). This implements `IDestinationWithPartialRead`.
 
 If you use `FileSystemDestniation` or `S3Destination` directly, you will have at least one file in the destination for every unique file in your source, with `PackedDestination`, files will be packed into large files and then flushed to the wrapped destination, making for significantly fewer files (but is slower and must write the packed file to a temporary file before flushing to the final destination).
 
@@ -85,7 +86,7 @@ Example config:
 						}
 					}
 				}
-			}
+			]
 		}
 	}
 ```
@@ -111,7 +112,7 @@ Example config:
 
 #### `PackedDestination`
 
-Wraps another destination, but packs the blobs into larger files before persisting to the wrapped destination.  This is useful when make a very large backup set and you don't wish to have too many files written to the destination.   It's configured with a destination to wrap.
+Wraps another destination, but packs the blobs into larger files before persisting to the wrapped destination.  This is useful when make a very large backup set and you don't wish to have too many files written to the destination.   It's configured with a destination to wrap.  It will pack files until a "progress" event is sent, so it may be important to configure `progressEveryCount` and/or `progressEveryBytes` (see below), otherwise a backup run may be bundled into an enormous single file before being flushed to the destination.
 
 Example config:
 
@@ -125,6 +126,42 @@ Example config:
 					"basePath": "E:\\Backup"
 				}
 			}
+		}
+	}
+```
+
+#### `SplitDestination`
+
+Wraps a primary destination and several other secondary destinations, sending all chunks to each destination.  Useful for backing up in more than one spot at once.  The primary destination must support partial reads (`IDestinationWithPartialRead`).  Read operations will only read from the primary destination.  Note that by default this will load the chunk into memory before distributing, so very large chunks may cause memory issues.  To cache to a temp file on disk instead, set `cacheOnDisk` to true in the config.
+
+Example config:
+
+```json
+	"destination": {
+		"type": "SplitDestination",
+		"config": {
+			"cacheOnDisk": true,
+			"verbose": true,
+			"primaryDestination": {
+				"type": "FileSystemDestination",
+				"config": {
+					"basePath": "E:\\Backup"
+				}
+			},
+			"secondaryDestinations" [
+				{
+					"type": "FileSystemDestination",
+					"config": {
+						"basePath": "X:\\SecondaryBackup"
+					}
+				},
+				{
+					"type": "FileSystemDestination",
+					"config": {
+						"basePath": "Z:\\FinalDestination"
+					}
+				}
+			]
 		}
 	}
 ```
@@ -149,10 +186,11 @@ Example config:
 
 ### Other configuration options
 
-There are two other options you can apply in the JSON config file:
+There are a few other options you can apply in the JSON config file:
 
 * `skipFilesContaining` - Skip any file containing any of the strings in this array.  Example: `[ "node_modules", ".git", ".svn" ]`.  **These files will not be backed up.**
 * `skipCompressionContaining` - Do not compress any file containing any of the strings in this array.  Example: `[ '.jpg', '.png', '.etc' ]`
+* `progressEveryCount` / `progressEveryBytes` - A snapshot of the current backup process can be sent either every so many files processed (with `progressEveryCount`) or every so many bytes processed (with `progressEveryBytes`).  This allows a backup process to resume from the last progress sent if it gets interruptted.  Note that it will send on the first type hit (count or bytes), and reset both counters.
 
 ### A completed example backup set JSON:
 
